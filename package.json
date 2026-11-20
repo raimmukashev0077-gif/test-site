@@ -1,0 +1,7 @@
+{
+  "name": "forma-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Минималистичный интернет-магазин аксессуаров для телефона с оплатой картой через Stripe",
+  "engines": { "node": ">=18" }
+}
