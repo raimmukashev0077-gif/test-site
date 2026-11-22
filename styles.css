@@ -441,3 +441,9 @@ input[type="range"] { height: 32px; }
 #demoPayOverlay .btn + .btn { margin-top:8px; }
 #demoPayOverlay .secure-note { margin:0 0 16px; }
 
+
+/* Видео «Как купить» (3D-ролик) */
+.howvideo { margin: 36px auto 0; max-width: 860px; scroll-margin-top: 90px; }
+.howvideo__title { font-size: 22px; font-weight: 600; margin: 0 0 14px; }
+.howvideo__player { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius); background: #ebe5da; box-shadow: 0 20px 50px -24px rgba(0,0,0,.35), 0 0 0 1px var(--line); }
+@media (max-width: 600px) { .howvideo__title { font-size: 19px; } }
