@@ -187,4 +187,7 @@
   // Первый кадр-обложка
   $(".vt-stage__inner").innerHTML = SCENES[0].html();
   $(".vt-sub").textContent = "Нажмите большую кнопку, чтобы посмотреть видео со звуком.";
+
+  // Для записи видео в файл (record.html)
+  window.VT = { SCENES, root };
 })();

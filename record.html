@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Запись видео FORMA</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  body { margin: 0; padding: 20px; background: #ddd; }
+  #vt { margin: 0; max-width: none; }
+  #vt .vt-stage { width: 1024px; height: 576px; aspect-ratio: auto; box-shadow: none; }
+  #vt .vt__title, #vt .vt-bar, #vt .vt-sub, #vt .vt-step, #vt .vt-start, #vt .vt-replay, #vt .vt-pausemark { display: none !important; }
+  #vt .vt-stage::after { display: none !important; }
+  #vt * { animation: none !important; transition: none !important; }
+  #out { margin-top: 16px; display: block; }
+  #status { font: 600 18px sans-serif; margin: 12px 0; }
+</style>
+</head>
+<body>
+<!-- Служебная страница: записывает мини-видео в MP4. На сайт не публикуется. -->
+<div class="vt" id="vt">
+  <h3 class="vt__title"></h3>
+  <div class="vt-stage"><div class="vt-stage__inner"></div><span class="vt-step"></span>
+    <button class="vt-start"></button><button class="vt-replay"></button><span class="vt-pausemark"></span></div>
+  <div class="vt-bar"><button class="vt-toggle"></button><div class="vt-segs"></div></div>
+  <p class="vt-sub"></p>
+</div>
+<p id="status">Готово к записи</p>
+<canvas id="out" width="1280" height="720"></canvas>
+
+<script src="products.js"></script>
+<script src="art.js"></script>
+<script src="video.js"></script>
+<script>
+(async function () {
+  const W = 1280, H = 720, SX = 128, SY = 24, SW = 1024, SH = 576, GAP = 0.5;
+  const { SCENES, root } = window.VT;
+  const inner = root.querySelector(".vt-stage__inner");
+  const canvas = document.getElementById("out"), g = canvas.getContext("2d");
+  const status = (t) => (document.getElementById("status").textContent = t);
+
+  let css = await (await fetch("styles.css")).text();
+  css = css.replace(/:root/g, ".vt-rec") + "\n*{animation:none!important;transition:none!important}";
+
+  const cursorImg = new Image();
+  cursorImg.src = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='48' height='48'><path d='M4 2l15 11-6.5 1 3.8 7.2-2.6 1.3-3.8-7.2L5 19z' fill='#1d1d1f' stroke='white' stroke-width='1.4' stroke-linejoin='round'/></svg>`);
+  await cursorImg.decode();
+
+  // Длительности озвучки
+  const actx = new AudioContext();
+  const buffers = await Promise.all(SCENES.map((_, i) =>
+    fetch(`audio/s${i + 1}.m4a`).then((r) => r.arrayBuffer()).then((b) => actx.decodeAudioData(b))));
+  const durs = buffers.map((b) => b.duration);
+  const offs = []; let acc = 0.6;
+  durs.forEach((d) => { offs.push(acc); acc += d + GAP; });
+  const TOTAL = acc + 1.2;
+
+  // Состояние сцены
+  let sceneIdx = -1, applied = 0, ver = 0, cur = null, from = null, to = null, goT = 0, clickT = -9;
+  function targetPos(sel) {
+    const el = inner.querySelector(`[data-t="${sel}"]`);
+    if (!el) return null;
+    const a = inner.getBoundingClientRect(), b = el.getBoundingClientRect();
+    return { x: (b.left + b.width / 2 - a.left) / a.width, y: (b.top + b.height / 2 - a.top) / a.height };
+  }
+  const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+  function curPos(t) {
+    if (!to) return null;
+    const k = ease(Math.min(1, Math.max(0, (t - goT) / 0.9)));
+    const f = from || to;
+    return { x: f.x + (to.x - f.x) * k, y: f.y + (to.y - f.y) * k };
+  }
+  function setState(T) {
+    let i = 0;
+    while (i < SCENES.length - 1 && T >= offs[i + 1]) i++;
+    const t = Math.min(T - offs[i], durs[i]);
+    if (i !== sceneIdx) {
+      sceneIdx = i; applied = 0; from = to = null; clickT = -9;
+      inner.innerHTML = SCENES[i].html();
+      ver++;
+    }
+    const steps = SCENES[i].steps;
+    while (applied < steps.length && steps[applied].t <= t) {
+      const st = steps[applied++];
+      if (st.go) { from = curPos(st.t); to = targetPos(st.go); goT = st.t; }
+      if (st.run) { st.run(); ver++; }
+      if (st.click) { st.click(); clickT = st.t; ver++; }
+    }
+    return { i, t };
+  }
+
+  // Растеризация сцены (только когда она изменилась)
+  let img = null, imgVer = -1, busy = false;
+  async function rasterize() {
+    if (busy || imgVer === ver) return;
+    busy = true;
+    const v = ver;
+    const html = new XMLSerializer().serializeToString(inner);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${SH}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="vt-rec" style="position:relative;width:${SW}px;height:${SH}px;font-family:-apple-system,Helvetica,Arial,sans-serif"><style>${css.replace(/</g, "\\3c ")}</style>${html}</div></foreignObject></svg>`;
+    const im = new Image();
+    im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    try { await im.decode(); img = im; imgVer = v; } catch (e) { console.error("raster", e); }
+    busy = false;
+  }
+
+  function wrap(text, maxW) {
+    const words = text.split(" "), lines = []; let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (g.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+
+  function draw(i, t) {
+    g.fillStyle = "#f7f6f3"; g.fillRect(0, 0, W, H);
+    g.save(); rr(SX, SY, SW, SH, 22); g.clip();
+    g.fillStyle = "#fbfaf7"; g.fillRect(SX, SY, SW, SH);
+    if (img) g.drawImage(img, SX, SY, SW, SH);
+    // курсор и «нажатие»
+    const p = curPos(t);
+    if (p) {
+      const x = SX + p.x * SW, y = SY + p.y * SH, dt = t - clickT;
+      if (dt >= 0 && dt < 0.6) {
+        g.beginPath(); g.arc(x, y, 10 + dt * 70, 0, Math.PI * 2);
+        g.fillStyle = `rgba(245,197,66,${0.7 * (1 - dt / 0.6)})`; g.fill();
+      }
+      g.drawImage(cursorImg, x - 8, y - 5, 40, 40);
+    }
+    g.restore();
+    g.strokeStyle = "#e3e1dc"; g.lineWidth = 2; rr(SX, SY, SW, SH, 22); g.stroke();
+    // шаг
+    const s = SCENES[i];
+    if (s.step) {
+      g.font = "700 20px Manrope, sans-serif";
+      const label = `Шаг ${s.step} из 4`, w = g.measureText(label).width + 32;
+      g.fillStyle = "#f5c542"; rr(SX + 16, SY + SH - 52, w, 38, 19); g.fill();
+      g.fillStyle = "#1d1d1f"; g.fillText(label, SX + 32, SY + SH - 26);
+    }
+    // субтитры
+    g.font = "600 24px Manrope, sans-serif"; g.fillStyle = "#1d1d1f"; g.textAlign = "center";
+    wrap(s.sub, SW).slice(0, 2).forEach((l, k) => g.fillText(l, W / 2, SY + SH + 44 + k * 32));
+    g.textAlign = "left";
+  }
+
+  async function frame(T) {
+    const { i, t } = setState(Math.max(0, T));
+    await rasterize();
+    draw(i, t);
+  }
+
+  window.recordVideo = async function () {
+    await document.fonts.ready;
+    await frame(0);
+    const dest = actx.createMediaStreamDestination();
+    const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+    const rec = new MediaRecorder(stream, { mimeType: "video/mp4;codecs=avc1.42E01E,mp4a.40.2", videoBitsPerSecond: 5_000_000 });
+    const chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const done = new Promise((r) => (rec.onstop = r));
+    await actx.resume();
+    const start = actx.currentTime + 0.3;
+    buffers.forEach((b, i) => {
+      const src = actx.createBufferSource(); src.buffer = b; src.connect(dest); src.start(start + offs[i]);
+    });
+    rec.start(1000);
+    status("Идёт запись…");
+    await new Promise((resolve) => {
+      const loop = async () => {
+        const T = actx.currentTime - start;
+        await frame(T);
+        status(`Идёт запись… ${Math.max(0, Math.round(T))} из ${Math.round(TOTAL)} сек`);
+        if (T >= TOTAL) return resolve();
+        setTimeout(loop, 15);
+      };
+      loop();
+    });
+    rec.stop();
+    await done;
+    const blob = new Blob(chunks, { type: "video/mp4" });
+    status(`Сохраняем файл (${(blob.size / 1e6).toFixed(1)} МБ)…`);
+    const r = await fetch("/save", { method: "POST", body: blob });
+    const msg = await r.text();
+    status("Готово: " + msg);
+    return msg;
+  };
+  window.previewAt = async (T) => { sceneIdx = -1; await frame(T); return { T, total: TOTAL }; };
+  status(`Готово к записи, длина ${TOTAL.toFixed(1)} сек`);
+})();
+</script>
+</body>
+</html>
