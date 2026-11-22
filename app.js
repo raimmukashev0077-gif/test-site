@@ -186,6 +186,12 @@
       });
       if (res.status === 404 || res.status === 405) throw new TypeError("no api");
       const data = await res.json().catch(() => ({}));
+      if (res.ok && data.demo) {
+        $("demoTotal").textContent = money(data.total);
+        close("cartOverlay"); open("demoPayOverlay");
+        btn.disabled = false; btn.innerHTML = label;
+        return;
+      }
       if (!res.ok || !data.url) throw new Error(data.error || "Не удалось начать оплату");
       window.location.href = data.url;
     } catch (err) {
@@ -194,6 +200,16 @@
       btn.disabled = false;
       btn.innerHTML = label;
     }
+  };
+
+  $("demoPayBtn").onclick = () => {
+    const b = $("demoPayBtn");
+    b.disabled = true; b.textContent = "Проводим оплату…";
+    setTimeout(() => {
+      b.disabled = false; b.textContent = "Оплатить";
+      close("demoPayOverlay");
+      cart = []; save(); open("successOverlay");
+    }, 1500);
   };
 
   // ---------- Окна ----------

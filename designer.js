@@ -175,7 +175,7 @@
     } catch (err) {
       toast(err instanceof TypeError ? "Отправка заработает после публикации сайта и подключения Supabase" : err.message);
     } finally {
-      btn.disabled = false; btn.textContent = "Предложить дизайн";
+      btn.disabled = false; btn.textContent = "Отправить нам";
     }
   });
 

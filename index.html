@@ -41,6 +41,7 @@
           <p class="hero__lead">Выберите товар, положите в корзину и оплатите картой. Привезём домой за 1–3 дня.</p>
           <div class="hero__actions">
             <a href="#catalog" class="btn btn--primary btn--big">Выбрать товар ↓</a>
+            <a href="#vt" class="btn btn--ghost btn--big">▶ Видео: как купить</a>
             <span class="hero__note">Доставка бесплатно<br />при заказе от 20 000 ₸</span>
           </div>
         </div>
@@ -56,6 +57,22 @@
           <li><span class="howto__num">2</span><div><b>Нажмите «В корзину»</b><p>Корзина — кнопка справа вверху экрана.</p></div></li>
           <li><span class="howto__num">3</span><div><b>Оплатите картой</b><p>Введите адрес, и мы привезём заказ.</p></div></li>
         </ol>
+
+        <div class="vt vt--idle" id="vt">
+          <h3 class="vt__title">Или посмотрите видео — 1 минута со звуком 🔊</h3>
+          <div class="vt-stage">
+            <div class="vt-stage__inner"></div>
+            <span class="vt-step" hidden></span>
+            <button class="vt-start" type="button"><span class="vt-start__icon">▶</span><span>Смотреть видео</span></button>
+            <button class="vt-replay" type="button">↻ Посмотреть ещё раз</button>
+            <span class="vt-pausemark" aria-hidden="true">❚❚</span>
+          </div>
+          <div class="vt-bar">
+            <button class="vt-toggle" type="button" aria-label="Пауза или продолжить"><span class="vt-ic-play">▶</span><span class="vt-ic-pause">❚❚</span></button>
+            <div class="vt-segs"></div>
+          </div>
+          <p class="vt-sub" aria-live="polite"></p>
+        </div>
       </div>
     </section>
 
@@ -223,6 +240,23 @@
     </aside>
   </div>
 
+  <!-- Тестовая оплата (пока не подключён Stripe) -->
+  <div class="overlay" id="demoPayOverlay" hidden>
+    <div class="modal modal--small" role="dialog" aria-modal="true" aria-labelledby="demoTitle">
+      <p class="demo-badge">Тестовый режим · деньги не списываются</p>
+      <h2 id="demoTitle">Оплата картой</h2>
+      <p class="demo-sum">К оплате: <b id="demoTotal"></b></p>
+      <div class="demo-card" aria-label="Тестовая карта">
+        <span class="demo-card__chip"></span>
+        <span class="demo-card__num">4242 4242 4242 4242</span>
+        <span class="demo-card__row"><span>TEST CARD</span><span>12/34</span></span>
+      </div>
+      <p class="secure-note">Это пример оплаты. Настоящую карту вводить не нужно.</p>
+      <button class="btn btn--primary btn--full btn--big" id="demoPayBtn">Оплатить</button>
+      <button class="btn btn--ghost btn--full" data-close>Отмена</button>
+    </div>
+  </div>
+
   <!-- Успешная оплата -->
   <div class="overlay" id="successOverlay" hidden>
     <div class="modal modal--small" role="dialog" aria-modal="true" aria-labelledby="okTitle">
@@ -239,5 +273,6 @@
   <script src="art.js"></script>
   <script src="app.js"></script>
   <script src="designer.js"></script>
+  <script src="video.js"></script>
 </body>
 </html>
